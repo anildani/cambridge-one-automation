@@ -1,9 +1,11 @@
 // Claude AI agent: navigates to Cambridge One, logs in as a teacher, verifies dashboard shows "Anil".
 // Run locally : node tests/verifyHomepage-agent.js
 // Run on LambdaTest: LT_USERNAME=<user> LT_ACCESS_KEY=<key> node tests/verifyHomepage-agent.js
+// Email report : set SMTP_USER, SMTP_PASS for auth; EMAIL_FROM for sender; EMAIL_HOST, EMAIL_PORT optional
 
 const Anthropic = require('@anthropic-ai/sdk');
 const { chromium } = require('playwright');
+const nodemailer = require('nodemailer');
 const path = require('path');
 const fs = require('fs');
 
@@ -13,6 +15,13 @@ const PASSWORD     = 'Compro11';
 const LT_USERNAME  = process.env.LT_USERNAME;
 const LT_ACCESS_KEY = process.env.LT_ACCESS_KEY;
 const USE_LAMBDATEST = !!(LT_USERNAME && LT_ACCESS_KEY);
+
+const EMAIL_TO   = 'anil.dani@comprotechnologies.com';
+const EMAIL_FROM = process.env.EMAIL_FROM;           // verified sender address (required)
+const EMAIL_HOST = process.env.EMAIL_HOST || 'smtp.gmail.com';
+const EMAIL_PORT = parseInt(process.env.EMAIL_PORT || '587', 10);
+const SMTP_USER  = process.env.SMTP_USER;            // SMTP auth login
+const SMTP_PASS  = process.env.SMTP_PASS;            // SMTP auth password
 
 const client = new Anthropic();
 const screenshotsDir = path.join(__dirname, 'test-results', 'homepage-agent');
@@ -296,6 +305,40 @@ Credentials:
 - If an overlay blocks a click, use browser_evaluate to click via JavaScript
 - Report clearly: PASS ✓ or FAIL ✗ with a summary`;
 
+// ── Email report ──────────────────────────────────────────────────────────────
+
+async function sendResultEmail(passed, summary) {
+  if (!SMTP_USER || !SMTP_PASS || !EMAIL_FROM) {
+    console.log('\nEmail skipped: SMTP_USER, SMTP_PASS, or EMAIL_FROM not set.');
+    return;
+  }
+  const transporter = nodemailer.createTransport({
+    host: EMAIL_HOST,
+    port: EMAIL_PORT,
+    secure: EMAIL_PORT === 465,
+    auth: { user: SMTP_USER, pass: SMTP_PASS },
+  });
+  const status = passed ? 'PASS ✓' : 'FAIL ✗';
+  const subject = `Cambridge One Verification – ${status}`;
+  const runner  = USE_LAMBDATEST ? `LambdaTest (${LT_USERNAME})` : 'Local Chromium';
+  const html = `
+    <h2 style="color:${passed ? '#2e7d32' : '#c62828'}">${status}</h2>
+    <p><b>URL:</b> ${TARGET_URL}</p>
+    <p><b>User:</b> ${USERNAME}</p>
+    <p><b>Runner:</b> ${runner}</p>
+    <p><b>Time:</b> ${new Date().toISOString()}</p>
+    <hr/>
+    <pre style="background:#f5f5f5;padding:12px;border-radius:4px">${summary}</pre>
+  `;
+  await transporter.sendMail({
+    from: EMAIL_FROM,
+    to: EMAIL_TO,
+    subject,
+    html,
+  });
+  console.log(`\nEmail sent to ${EMAIL_TO} — ${status}`);
+}
+
 // ── Agent loop ────────────────────────────────────────────────────────────────
 
 async function runAgent() {
@@ -319,6 +362,8 @@ async function runAgent() {
   ];
 
   const maxIterations = 30;
+  let testPassed = false;
+  let finalSummary = 'No summary captured.';
 
   try {
     for (let i = 1; i <= maxIterations; i++) {
@@ -344,6 +389,8 @@ async function runAgent() {
       for (const block of response.content) {
         if (block.type === 'text' && block.text.trim()) {
           console.log(`\nAgent: ${block.text}\n`);
+          if (/PASS\s*[✓✓]/u.test(block.text)) { testPassed = true;  finalSummary = block.text; }
+          if (/FAIL\s*[✗✗]/u.test(block.text)) { testPassed = false; finalSummary = block.text; }
         } else if (block.type === 'tool_use') {
           toolUses.push(block);
         }
@@ -389,6 +436,7 @@ async function runAgent() {
     await context.close();
     await browser.close();
     console.log(`\nDone. Screenshots saved in: ${screenshotsDir}`);
+    await sendResultEmail(testPassed, finalSummary);
   }
 }
 
