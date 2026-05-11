@@ -307,7 +307,7 @@ Credentials:
 
 // ── Email report ──────────────────────────────────────────────────────────────
 
-async function sendResultEmail(passed, summary) {
+async function sendResultEmail(passed, summary, screenshotPath) {
   if (!SMTP_USER || !SMTP_PASS || !EMAIL_FROM) {
     console.log('\nEmail skipped: SMTP_USER, SMTP_PASS, or EMAIL_FROM not set.');
     return;
@@ -321,6 +321,7 @@ async function sendResultEmail(passed, summary) {
   const status = passed ? 'PASS ✓' : 'FAIL ✗';
   const subject = `Cambridge One Verification – ${status}`;
   const runner  = USE_LAMBDATEST ? `LambdaTest (${LT_USERNAME})` : 'Local Chromium';
+  const hasScreenshot = screenshotPath && fs.existsSync(screenshotPath);
   const html = `
     <h2 style="color:${passed ? '#2e7d32' : '#c62828'}">${status}</h2>
     <p><b>URL:</b> ${TARGET_URL}</p>
@@ -329,14 +330,19 @@ async function sendResultEmail(passed, summary) {
     <p><b>Time:</b> ${new Date().toISOString()}</p>
     <hr/>
     <pre style="background:#f5f5f5;padding:12px;border-radius:4px">${summary}</pre>
+    ${hasScreenshot ? '<p><b>Dashboard screenshot attached.</b></p>' : ''}
   `;
+  const attachments = hasScreenshot
+    ? [{ filename: 'dashboard.png', path: screenshotPath, contentType: 'image/png' }]
+    : [];
   await transporter.sendMail({
     from: EMAIL_FROM,
     to: EMAIL_TO,
     subject,
     html,
+    attachments,
   });
-  console.log(`\nEmail sent to ${EMAIL_TO} — ${status}`);
+  console.log(`\nEmail sent to ${EMAIL_TO} — ${status}${hasScreenshot ? ' (with screenshot)' : ''}`);
 }
 
 // ── Agent loop ────────────────────────────────────────────────────────────────
@@ -436,7 +442,7 @@ async function runAgent() {
     await context.close();
     await browser.close();
     console.log(`\nDone. Screenshots saved in: ${screenshotsDir}`);
-    await sendResultEmail(testPassed, finalSummary);
+    await sendResultEmail(testPassed, finalSummary, path.join(screenshotsDir, '02-dashboard.png'));
   }
 }
 
