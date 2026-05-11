@@ -51,7 +51,8 @@ async function setupBrowser() {
     browser = await chromium.connect({ wsEndpoint });
     context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
   } else {
-    browser = await chromium.launch({ headless: false, slowMo: 300 });
+    const isCI = !!(process.env.CI || process.env.GITHUB_ACTIONS);
+    browser = await chromium.launch({ headless: isCI, slowMo: isCI ? 0 : 300 });
     context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
   }
   page = await context.newPage();
