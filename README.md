@@ -101,7 +101,7 @@ All test parameters are stored in `test-data/testData.json`:
 {
   "url": "https://micro-nemo.comprodls.com/",
   "username": "anildaniteacher1@mailsac.com",
-  "password": "Compro11",
+  "password": " ",
   "className": "AI Test Class 1",
   "materialSearch": "R55",
   "materialName": "R55 Multi Component Umbrella"
