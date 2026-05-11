@@ -1,0 +1,19 @@
+{
+  "name": "cambridge-one-automation",
+  "version": "1.0.0",
+  "description": "Playwright POM automation for Cambridge One (micro-nemo)",
+  "scripts": {
+    "test": "npx playwright test",
+    "test:headed": "npx playwright test --headed",
+    "report": "npx playwright show-report",
+    "agent": "node tests/createClass-agent.js",
+    "verify:homepage": "node tests/verifyHomepage-agent.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.36.3",
+    "playwright": "^1.59.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1"
+  }
+}

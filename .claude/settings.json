@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-Content \"$env:APPDATA\\\\Claude\\\\claude_desktop_config.json\" -ErrorAction SilentlyContinue; Get-Content \"$env:USERPROFILE\\\\.claude\\\\settings.json\" -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-Content \"$env:APPDATA\\\\Claude\\\\claude_desktop_config.json\" -ErrorAction SilentlyContinue | ConvertFrom-Json | ConvertTo-Json -Depth 10)",
+      "PowerShell(Get-Content \"$env:APPDATA\\\\Claude\\\\claude_desktop_config.json\" -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-ChildItem \"$env:USERPROFILE\\\\.claude\\\\\" -ErrorAction SilentlyContinue)",
+      "Read(//c/Users/Compro/.claude/**)",
+      "PowerShell(Get-ChildItem \"$env:USERPROFILE\\\\.claude\\\\\" -Recurse | Select-Object Name, FullName)",
+      "PowerShell(dir /s /b \"$env:USERPROFILE\\\\.claude\")"
+    ]
+  }
+}
