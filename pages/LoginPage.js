@@ -18,7 +18,7 @@ class LoginPage extends BasePage {
 
     await this.loginButton.waitFor({ state: 'visible' });
     await this.loginButton.click();
-    await this.page.waitForURL(url => !url.toString().includes('/login'), { timeout: 15000 });
+    await this.page.waitForURL(url => !url.toString().includes('/login'), { timeout: 30000, waitUntil: 'domcontentloaded' });
   }
 
   isDashboardUrl() {

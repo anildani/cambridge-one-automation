@@ -22,6 +22,46 @@ class DashboardPage extends BasePage {
     await this.waitForPageSettle(2000);
   }
 
+  // Returns all available class names (h4 headings) — skips cards marked "Not available"
+  async getAllClassNames() {
+    await this.waitForPageSettle(2000);
+    const names = await this.page.evaluate(() =>
+      Array.from(document.querySelectorAll('h4'))
+        .filter(h => {
+          // The "Not available" label lives as a sibling of the <a> that wraps the h4.
+          // Walk up: h4 → <a> → card div; check that card div has no "Not available" text.
+          const cardDiv = h.closest('a')?.parentElement;
+          return !cardDiv?.textContent.includes('Not available');
+        })
+        .map(h => h.textContent.trim())
+        .filter(t => t.length > 0)
+    );
+    console.log(`  Classes on dashboard (${names.length}): ${JSON.stringify(names.slice(0, 5))}${names.length > 5 ? '...' : ''}`);
+    return names;
+  }
+
+  // Returns the count of available class cards (excludes "Not available")
+  async getClassCount() {
+    await this.waitForPageSettle(1000);
+    return await this.page.evaluate(() =>
+      Array.from(document.querySelectorAll('h4'))
+        .filter(h => !h.closest('a')?.parentElement?.textContent.includes('Not available'))
+        .length
+    );
+  }
+
+  // Returns true when the available class count has dropped below previousCount
+  async isClassCountReduced(previousCount) {
+    await this.waitForPageSettle(1500);
+    const current = await this.page.evaluate(() =>
+      Array.from(document.querySelectorAll('h4'))
+        .filter(h => !h.closest('a')?.parentElement?.textContent.includes('Not available'))
+        .length
+    );
+    console.log(`  Class count: before=${previousCount}, after=${current}`);
+    return current < previousCount;
+  }
+
   async verifyClassOnDashboard(className) {
     // Success page shows "Go to dashboard" as a link styled as a button
     try {
