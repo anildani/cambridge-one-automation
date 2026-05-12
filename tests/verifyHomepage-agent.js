@@ -3,6 +3,7 @@
 // Run on LambdaTest: LT_USERNAME=<user> LT_ACCESS_KEY=<key> node tests/verifyHomepage-agent.js
 // Email report : set SMTP_USER, SMTP_PASS for auth; EMAIL_FROM for sender; EMAIL_HOST, EMAIL_PORT optional
 
+require('dotenv').config();
 const Anthropic = require('@anthropic-ai/sdk');
 const { chromium } = require('playwright');
 const nodemailer = require('nodemailer');
@@ -309,16 +310,34 @@ Credentials:
 // ── Email report ──────────────────────────────────────────────────────────────
 
 async function sendResultEmail(passed, summary, screenshotPath) {
+  console.log('\n── Email report ──────────────────────────────────');
+  console.log(`  SMTP_USER  : ${SMTP_USER  || '(not set)'}`);
+  console.log(`  EMAIL_FROM : ${EMAIL_FROM || '(not set)'}`);
+  console.log(`  EMAIL_HOST : ${EMAIL_HOST}`);
+  console.log(`  EMAIL_PORT : ${EMAIL_PORT}`);
+  console.log(`  SMTP_PASS  : ${SMTP_PASS ? '(set)' : '(not set)'}`);
+
   if (!SMTP_USER || !SMTP_PASS || !EMAIL_FROM) {
-    console.log('\nEmail skipped: SMTP_USER, SMTP_PASS, or EMAIL_FROM not set.');
+    console.log('  → Skipped: SMTP_USER, SMTP_PASS, or EMAIL_FROM not set.');
     return;
   }
+
   const transporter = nodemailer.createTransport({
     host: EMAIL_HOST,
     port: EMAIL_PORT,
     secure: EMAIL_PORT === 465,
     auth: { user: SMTP_USER, pass: SMTP_PASS },
   });
+
+  // Verify SMTP connection before sending
+  try {
+    await transporter.verify();
+    console.log('  SMTP connection verified ✓');
+  } catch (err) {
+    console.error(`  SMTP connection failed ✗ — ${err.message}`);
+    return;
+  }
+
   const status = passed ? 'PASS ✓' : 'FAIL ✗';
   const subject = `Cambridge One Verification – ${status}`;
   const runner  = USE_LAMBDATEST ? `LambdaTest (${LT_USERNAME})` : 'Local Chromium';
@@ -336,14 +355,13 @@ async function sendResultEmail(passed, summary, screenshotPath) {
   const attachments = hasScreenshot
     ? [{ filename: 'dashboard.png', path: screenshotPath, contentType: 'image/png' }]
     : [];
-  await transporter.sendMail({
-    from: EMAIL_FROM,
-    to: EMAIL_TO,
-    subject,
-    html,
-    attachments,
-  });
-  console.log(`\nEmail sent to ${EMAIL_TO} — ${status}${hasScreenshot ? ' (with screenshot)' : ''}`);
+
+  try {
+    await transporter.sendMail({ from: EMAIL_FROM, to: EMAIL_TO, subject, html, attachments });
+    console.log(`  Email sent to ${EMAIL_TO} — ${status}${hasScreenshot ? ' (with screenshot)' : ''}`);
+  } catch (err) {
+    console.error(`  Failed to send email ✗ — ${err.message}`);
+  }
 }
 
 // ── Agent loop ────────────────────────────────────────────────────────────────
@@ -443,7 +461,8 @@ async function runAgent() {
     await context.close();
     await browser.close();
     console.log(`\nDone. Screenshots saved in: ${screenshotsDir}`);
-    await sendResultEmail(testPassed, finalSummary, path.join(screenshotsDir, '02-dashboard.png'));
+    await sendResultEmail(testPassed, finalSummary, path.join(screenshotsDir, '02-dashboard.png'))
+      .catch(err => console.error(`  Unexpected email error: ${err.message}`));
   }
 }
 
